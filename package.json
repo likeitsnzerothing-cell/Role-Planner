@@ -24,7 +24,7 @@
     "directories": { "output": "dist" },
     "publish": {
       "provider": "github",
-      "owner": "Likeitsnzerothing-cell",
+      "owner": "likeitsnzerothing-cell",
       "repo": "role-planner"
     },
     "win": {
