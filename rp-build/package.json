@@ -1,6 +1,6 @@
 {
   "name": "role-planner",
-  "version": "1.9.2",
+  "version": "2.0.0",
   "description": "Work Roles & Responsibilities Planner \u2014 Warren Dev",
   "main": "src/main.js",
   "scripts": {
