@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'"/>
+<title>Role Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles/main.css"/>
+</head>
+<body>
+
+<!-- Custom Titlebar -->
+<div id="titlebar">
+  <div id="titlebar-drag">
+    <span id="app-title">◈ Role Planner</span>
+    <span style="font-size:9px;color:#4a4a4a;margin-left:10px;letter-spacing:1px">v1.9.2 · Warren Dev</span>
+  </div>
+  <div id="titlebar-controls">
+    <button onclick="window.api.window.minimize()" title="Minimise">─</button>
+    <button onclick="window.api.window.maximize()" title="Maximise">□</button>
+    <button onclick="window.api.window.close()" id="close-btn" title="Close">✕</button>
+  </div>
+</div>
+
+<!-- Update Banner (hidden by default) -->
+<div id="update-banner" style="display:none;position:fixed;top:36px;left:0;right:0;z-index:999;background:#e8c547;color:#0e0e0e;font-size:11px;padding:6px 16px;display:none;align-items:center;gap:12px;">
+  <span id="update-banner-text">A new version is available.</span>
+  <button id="update-download-btn" onclick="handleUpdateDownload()" style="background:#0e0e0e;color:#e8c547;border:none;padding:3px 10px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:10px;">Download</button>
+  <button id="update-install-btn" onclick="handleUpdateInstall()" style="display:none;background:#0e0e0e;color:#e8c547;border:none;padding:3px 10px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:10px;">Restart & Install</button>
+  <button onclick="document.getElementById('update-banner').style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#0e0e0e;font-size:14px;">✕</button>
+</div>
+
+<!-- App Shell -->
+<div id="shell">
+
+  <!-- Sidebar Nav -->
+  <nav id="sidebar">
+    <div id="nav-user">
+      <div id="nav-avatar">W</div>
+      <div id="nav-user-info">
+        <span id="nav-name">Warren Dev</span>
+        <span id="nav-email">Role Planner v1.9.2</span>
+      </div>
+    </div>
+
+    <div class="nav-section-label">Workspace</div>
+    <a class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+      <span class="nav-icon">◉</span> Dashboard
+    </a>
+    <a class="nav-item" data-page="roles" onclick="navigate('roles')">
+      <span class="nav-icon">◈</span> Roles
+    </a>
+    <a class="nav-item" data-page="localcalendar" onclick="navigate('localcalendar')">
+      <span class="nav-icon">📅</span> Calendar
+    </a>
+    <a class="nav-item" data-page="notifications" onclick="navigate('notifications')">
+      <span class="nav-icon">🔔</span> Reminders
+      <span id="notif-badge" class="badge" style="display:none">0</span>
+    </a>
+    <a class="nav-item" data-page="team" onclick="navigate('team')">
+      <span class="nav-icon">👥</span> Team
+    </a>
+
+    <div class="nav-section-label" style="margin-top:auto">App</div>
+    <a class="nav-item" data-page="settings" onclick="navigate('settings')">
+      <span class="nav-icon">⚙</span> Settings
+    </a>
+
+    <div style="padding:12px 8px;margin-top:8px;border-top:1px solid var(--border)">
+      <div style="font-size:9px;color:#3a3a3a;line-height:1.8">
+        © 2025 Eddie Warren<br/>Warren Dev · v1.9.2
+      </div>
+    </div>
+  </nav>
+
+  <!-- Sidebar resizer -->
+  <div class="resizer" id="nav-resizer"></div>
+
+  <!-- Page Container -->
+  <main id="page-container">
+    <div class="loading-screen"><div class="spinner"></div></div>
+  </main>
+
+</div>
+
+<!-- Toast -->
+<div id="toast-container"></div>
+
+<script src="js/theme.js"></script>
+<script src="js/toast.js"></script>
+<script src="pages/dashboard.js"></script>
+<script src="pages/team.js"></script>
+<script src="pages/roles.js"></script>
+<script src="pages/localcalendar.js"></script>
+<script src="pages/notifications.js"></script>
+<script src="pages/settings.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+// Sidebar resizer
+(function() {
+  const MIN = 180, MAX = 360, DEFAULT = 220;
+  const resizer = document.getElementById('nav-resizer');
+  const sidebar = document.getElementById('sidebar');
+  const shell   = document.getElementById('shell');
+  let dragging = false, startX = 0, startW = 0;
+
+  function setWidth(w) {
+    w = Math.min(MAX, Math.max(MIN, w));
+    sidebar.style.width = w + 'px';
+    shell.style.gridTemplateColumns = w + 'px 4px 1fr';
+  }
+
+  setWidth(DEFAULT);
+
+  resizer.addEventListener('mousedown', e => {
+    dragging = true; startX = e.clientX; startW = sidebar.offsetWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => { if (dragging) setWidth(startW + (e.clientX - startX)); });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// Auto-updater UI
+function handleUpdateDownload() {
+  document.getElementById('update-banner-text').textContent = 'Downloading update…';
+  document.getElementById('update-download-btn').style.display = 'none';
+  window.api.updater.download();
+}
+function handleUpdateInstall() {
+  window.api.updater.install();
+}
+</script>
+</body>
+</html>

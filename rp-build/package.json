@@ -1,0 +1,56 @@
+{
+  "name": "role-planner",
+  "version": "1.9.2",
+  "description": "Work Roles & Responsibilities Planner \u2014 Warren Dev",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:win": "electron-builder --win"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.3.9",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.warrendev.roleplanner",
+    "productName": "Role Planner",
+    "copyright": "Copyright \u00a9 2025 Eddie Warren / Warren Dev",
+    "directories": {
+      "output": "dist"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "likeitsnzerothing-cell",
+      "repo": "role-planner"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "author": {
+    "name": "Eddie Warren",
+    "company": "Warren Dev"
+  },
+  "license": "MIT"
+}
