@@ -7,8 +7,9 @@
 async function render_roles(container) {
   let roles      = await window.api.store.get('roles')      || [];
   let roleGroups = await window.api.store.get('roleGroups') || [];
-  let activeId   = null;
-  let activeType = null;
+  let activeId      = null;
+  let activeType    = null;
+  let _currentSort  = 'manual';
   let collapsed  = {};
   let dragState  = {}; // { type, fromIdx, id }
 
@@ -476,7 +477,7 @@ async function render_roles(container) {
 
   // ── Task Folder ──────────────────────────────────────────────────────────────
   function sortTasksBy(tasks) {
-    const s = window._roleSort || 'manual';
+    const s = _currentSort || 'manual';
     if (s === 'deadline') return [...tasks].sort((a,b) => { if (!a.deadline&&!b.deadline) return 0; if (!a.deadline) return 1; if (!b.deadline) return -1; return new Date(a.deadline)-new Date(b.deadline); });
     if (s === 'priority') return [...tasks].sort((a,b) => ({'high':0,'medium':1,'low':2,'':3}[a.priority||'']||3) - ({'high':0,'medium':1,'low':2,'':3}[b.priority||'']||3));
     if (s === 'alpha')    return [...tasks].sort((a,b) => (a.text||'').localeCompare(b.text||''));
@@ -485,10 +486,10 @@ async function render_roles(container) {
   }
 
   function sortControlsHTML() {
-    const cur = window._roleSort || 'manual';
+    const cur = _currentSort;
     return `<div style="display:flex;align-items:center;gap:4px;margin-left:8px">
       <span style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Sort</span>
-      <select onchange="window._roleSort=this.value;(async()=>await render())()" style="background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:10px;padding:2px 6px;cursor:pointer;outline:none">
+      <select onchange="_currentSort=this.value;(async()=>await render())()" style="background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:10px;padding:2px 6px;cursor:pointer;outline:none">
         <option value="manual" ${cur==='manual'?'selected':''}>Manual</option>
         <option value="deadline" ${cur==='deadline'?'selected':''}>Deadline</option>
         <option value="priority" ${cur==='priority'?'selected':''}>Priority</option>
