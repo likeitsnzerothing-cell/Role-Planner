@@ -4,12 +4,13 @@
  *   Role Groups → Roles within group → Task Folders → Tasks within folder
  */
 
+let _currentSort = 'manual'; // persists across re-renders
+
 async function render_roles(container) {
   let roles      = await window.api.store.get('roles')      || [];
   let roleGroups = await window.api.store.get('roleGroups') || [];
   let activeId      = null;
   let activeType    = null;
-  let _currentSort  = 'manual';
   let collapsed  = {};
   let dragState  = {}; // { type, fromIdx, id }
 
