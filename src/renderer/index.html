@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src https://graph.microsoft.com https://login.microsoftonline.com https://api.anthropic.com"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'"/>
 <title>Role Planner</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles/main.css"/>
@@ -13,13 +13,21 @@
 <div id="titlebar">
   <div id="titlebar-drag">
     <span id="app-title">◈ Role Planner</span>
-    <span style="font-size:9px;color:#4a4a4a;margin-left:10px;letter-spacing:1px">v1.7.0 · Warren Dev</span>
+    <span style="font-size:9px;color:#4a4a4a;margin-left:10px;letter-spacing:1px">v1.8.9 · Warren Dev</span>
   </div>
   <div id="titlebar-controls">
     <button onclick="window.api.window.minimize()" title="Minimise">─</button>
     <button onclick="window.api.window.maximize()" title="Maximise">□</button>
     <button onclick="window.api.window.close()" id="close-btn" title="Close">✕</button>
   </div>
+</div>
+
+<!-- Update Banner (hidden by default) -->
+<div id="update-banner" style="display:none;position:fixed;top:36px;left:0;right:0;z-index:999;background:#e8c547;color:#0e0e0e;font-size:11px;padding:6px 16px;display:none;align-items:center;gap:12px;">
+  <span id="update-banner-text">A new version is available.</span>
+  <button id="update-download-btn" onclick="handleUpdateDownload()" style="background:#0e0e0e;color:#e8c547;border:none;padding:3px 10px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:10px;">Download</button>
+  <button id="update-install-btn" onclick="handleUpdateInstall()" style="display:none;background:#0e0e0e;color:#e8c547;border:none;padding:3px 10px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:10px;">Restart & Install</button>
+  <button onclick="document.getElementById('update-banner').style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#0e0e0e;font-size:14px;">✕</button>
 </div>
 
 <!-- App Shell -->
@@ -31,7 +39,7 @@
       <div id="nav-avatar">W</div>
       <div id="nav-user-info">
         <span id="nav-name">Warren Dev</span>
-        <span id="nav-email">Role Planner v1.7.0</span>
+        <span id="nav-email">Role Planner v1.8.9</span>
       </div>
     </div>
 
@@ -53,16 +61,6 @@
       <span class="nav-icon">👥</span> Team
     </a>
 
-    <div class="nav-section-label">Microsoft 365</div>
-    <a class="nav-item ms-item" data-page="calendar" onclick="navigate('calendar')" style="opacity:0.4" title="Sign in to Microsoft to enable">
-      <span class="nav-icon">☁️</span> Teams Cal
-      <span class="chip chip-muted" style="font-size:8px;margin-left:auto">Soon</span>
-    </a>
-    <a class="nav-item ms-item" data-page="onenote" onclick="navigate('onenote')" style="opacity:0.4" title="Sign in to Microsoft to enable">
-      <span class="nav-icon">📓</span> OneNote
-      <span class="chip chip-muted" style="font-size:8px;margin-left:auto">Soon</span>
-    </a>
-
     <div class="nav-section-label" style="margin-top:auto">App</div>
     <a class="nav-item" data-page="settings" onclick="navigate('settings')">
       <span class="nav-icon">⚙</span> Settings
@@ -70,7 +68,7 @@
 
     <div style="padding:12px 8px;margin-top:8px;border-top:1px solid var(--border)">
       <div style="font-size:9px;color:#3a3a3a;line-height:1.8">
-        © 2025 Eddie Warren<br/>Warren Dev · v1.7.0
+        © 2025 Eddie Warren<br/>Warren Dev · v1.8.9
       </div>
     </div>
   </nav>
@@ -88,19 +86,14 @@
 <!-- Toast -->
 <div id="toast-container"></div>
 
-<!-- Theme engine loads first to prevent flash -->
 <script src="js/theme.js"></script>
-<!-- Load page scripts first, then app -->
 <script src="js/toast.js"></script>
 <script src="pages/dashboard.js"></script>
 <script src="pages/team.js"></script>
 <script src="pages/roles.js"></script>
 <script src="pages/localcalendar.js"></script>
-<script src="pages/calendar.js"></script>
-<script src="pages/onenote.js"></script>
 <script src="pages/notifications.js"></script>
 <script src="pages/settings.js"></script>
-<!-- App router loads last -->
 <script src="js/app.js"></script>
 
 <script>
@@ -134,6 +127,16 @@
     document.body.style.userSelect = '';
   });
 })();
+
+// Auto-updater UI
+function handleUpdateDownload() {
+  document.getElementById('update-banner-text').textContent = 'Downloading update…';
+  document.getElementById('update-download-btn').style.display = 'none';
+  window.api.updater.download();
+}
+function handleUpdateInstall() {
+  window.api.updater.install();
+}
 </script>
 </body>
 </html>

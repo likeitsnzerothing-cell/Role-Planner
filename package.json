@@ -1,19 +1,16 @@
 {
   "name": "role-planner",
-  "version": "1.4.1",
-  "description": "Work Roles & Responsibilities Planner with Microsoft 365 integration",
+  "version": "1.8.9",
+  "description": "Work Roles & Responsibilities Planner \u2014 Warren Dev",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux"
+    "build:win": "electron-builder --win"
   },
   "dependencies": {
-    "@azure/msal-node": "^2.16.2",
-    "axios": "^1.7.9",
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.3.9",
     "node-cron": "^3.0.3"
   },
   "devDependencies": {
@@ -21,23 +18,28 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.w1corp.roleplanner",
+    "appId": "com.warrendev.roleplanner",
     "productName": "Role Planner",
-    "copyright": "Copyright © 2025 Eddie Warren / Warren Dev",
-    "directories": { "output": "dist" },
+    "copyright": "Copyright \u00a9 2025 Eddie Warren / Warren Dev",
+    "directories": {
+      "output": "dist"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "likeitsnzerothing-cell",
+      "repo": "role-planner"
+    },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "src/assets/icon.ico",
       "requestedExecutionLevel": "asInvoker"
-    },
-    "mac": {
-      "target": ["dmg"],
-      "icon": "src/assets/icon.icns",
-      "category": "public.app-category.productivity"
-    },
-    "linux": {
-      "target": ["AppImage"],
-      "category": "Office"
     },
     "nsis": {
       "oneClick": false,
@@ -48,8 +50,7 @@
   },
   "author": {
     "name": "Eddie Warren",
-    "company": "WARREN C.H.E"
+    "company": "Warren Dev"
   },
-  "license": "MIT",
-  "copyright": "Copyright © 2025 Eddie Warren / WARREN C.H.E"
+  "license": "MIT"
 }

@@ -106,7 +106,12 @@ function applyTheme(settings) {
 
 // ── Load & save ───────────────────────────────────────────────────────────────
 async function loadAndApplyTheme() {
-  const settings = await window.api.store.get('theme') || {};
+  const raw = await window.api.store.get('theme') || {};
+  // Normalise: flat {accent, bg} -> {custom: {'--accent': x, '--bg': y}}
+  const settings = { ...raw };
+  if (!settings.custom) settings.custom = {};
+  if (raw.accent) settings.custom['--accent'] = raw.accent;
+  if (raw.bg)     settings.custom['--bg']     = raw.bg;
   applyTheme(settings);
 
   // Watch system preference changes
@@ -118,7 +123,8 @@ async function loadAndApplyTheme() {
 
 async function saveTheme(settings) {
   await window.api.store.set('theme', settings);
-  applyTheme(settings);
+  // Re-run through loadAndApplyTheme to normalise flat keys
+  await loadAndApplyTheme();
 }
 
 // Expose globally

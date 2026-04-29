@@ -186,10 +186,13 @@ async function render_roles(container) {
            ondrop="handleDropGroup(event,${gi})"
            style="margin-bottom:4px;border-radius:4px;transition:background 0.1s">
         <div class="nav-item ${isActive?'active':''}" onclick="selectItem('${g.id}','group')"
+             ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)"
+             ondrop="handleDropOnGroup(event,'${g.id}')"
+             title="Drop a role here to move it into this group"
              style="border-left:3px solid ${color};flex-direction:column;align-items:flex-start;gap:3px;cursor:grab">
           <div class="flex-between" style="width:100%">
             <div style="display:flex;align-items:center;gap:4px;min-width:0;flex:1">
-              <span style="color:var(--muted);font-size:10px;flex-shrink:0;cursor:grab" title="Drag to reorder">⠿</span>
+              <span style="color:var(--muted);font-size:10px;flex-shrink:0;cursor:grab" title="Drag to reorder or drop onto a group to move">⠿</span>
               <span onclick="event.stopPropagation();toggleCollapse('${g.id}')" style="cursor:pointer;font-size:10px;color:var(--muted);flex-shrink:0">${isOpen?'▾':'▸'}</span>
               <span style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 ${esc(g.title)}</span>
             </div>
@@ -210,7 +213,10 @@ async function render_roles(container) {
 
     const unGrouped = ungroupedRoles();
     if (unGrouped.length) {
-      html += `<div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);padding:8px 8px 4px">Ungrouped</div>`;
+      html += `<div ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)"
+        ondrop="handleDropOnGroup(event,'null')"
+        style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);padding:8px 8px 4px;border-radius:4px;transition:background 0.1s"
+        title="Drop a role here to ungroup it">Ungrouped</div>`;
       unGrouped.forEach((r,ri) => { html += renderSidebarRole(r, false, null, ri, unGrouped.length); });
     }
 
@@ -223,6 +229,7 @@ async function render_roles(container) {
   function renderSidebarRole(r, indented, groupId, ri, total) {
     const done     = (r.responsibilities||[]).filter(t=>t.done).length;
     const total2   = (r.responsibilities||[]).length;
+    const recurBadge = r.recurrence ? ` <span style="font-size:9px;color:var(--info)" title="Recurring ${r.recurrence.value} ${r.recurrence.unit}">🔁</span>` : '';
     const pct      = total2 ? Math.round(done/total2*100) : 0;
     const isActive = activeId === r.id && activeType === 'role';
     const gpStr    = groupId || 'null';
@@ -239,7 +246,7 @@ async function render_roles(container) {
         <div class="flex-between" style="width:100%">
           <div style="display:flex;align-items:center;gap:4px;min-width:0;flex:1">
             <span style="color:var(--muted);font-size:10px;flex-shrink:0;cursor:grab" title="Drag to reorder">⠿</span>
-            <span style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">◈ ${esc(r.title)}</span>
+            <span style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">◈ ${esc(r.title)}${recurBadge}</span>
           </div>
           <div style="display:flex;align-items:center;gap:2px;flex-shrink:0">
             <span style="font-size:9px;color:var(--muted)">${done}/${total2}</span>
@@ -363,6 +370,13 @@ async function render_roles(container) {
           <div class="progress-wrap" style="width:180px"><div class="progress-bar" style="width:${pct}%"></div></div>
           <span style="font-size:10px;color:var(--muted)">${prog.done}/${prog.total} tasks</span>
         </div>
+        ${role.recurrence ? `
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 12px;background:rgba(74,138,202,0.1);border:1px solid var(--info);border-radius:6px;width:fit-content">
+          <span style="font-size:11px;color:var(--info)">🔁 Recurring</span>
+          <span style="font-size:10px;color:var(--muted)">Every ${role.recurrence.value} ${role.recurrence.unit}</span>
+          ${role.recurrence.nextReset ? `<span style="font-size:10px;color:var(--muted)">· Next reset: ${new Date(role.recurrence.nextReset).toLocaleDateString()}</span>` : ''}
+          <button onclick="triggerRoleReset('${role.id}')" class="btn btn-ghost btn-sm" style="font-size:9px;padding:2px 8px">↺ Reset Now</button>
+        </div>` : ''}
         <!-- Period selector -->
         <div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
           <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Progress period:</span>
@@ -391,19 +405,69 @@ async function render_roles(container) {
         </div>
       </div>
       <div class="card">
-        <div class="card-header"><h3>Role Notes</h3><button class="btn btn-ghost btn-sm" onclick="syncNotesToOneNote('${role.id}')">📓 OneNote</button></div>
+        <div class="card-header"><h3>Role Notes</h3></div>
         <textarea id="role-notes" style="width:100%;background:none;border:none;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:16px;resize:none;outline:none;min-height:100px;line-height:1.7" placeholder="Add notes…" onblur="saveRoleNotes()">${esc(role.notes||'')}</textarea>
       </div>
-      <div class="card" style="grid-column:span 2">
-        <div class="card-header"><h3>Linked Calendar Events</h3><button class="btn btn-ghost btn-sm" onclick="openCreateEventModal('${role.id}')">＋ Create Meeting</button></div>
-        <div id="linked-events-list" style="padding:12px"><span class="text-muted text-sm">Loading events…</span></div>
+      ${renderHistorySection(role)}
+    </div>`;
+  }
+
+  function renderHistorySection(role) {
+    const done = (role.responsibilities||[]).filter(t => t.done);
+    if (done.length === 0) return '';
+    const sorted = [...done].sort((a,b) => new Date(b.completedAt||0) - new Date(a.completedAt||0));
+    const isOpen = !collapsed['hist_'+role.id];
+    return `
+    <div class="card" style="grid-column:span 2;border-color:var(--success);opacity:0.85">
+      <div class="card-header" style="cursor:pointer" onclick="toggleCollapse('hist_${role.id}')">
+        <h3 style="color:var(--success)">✓ History <span style="font-size:11px;color:var(--muted)">(${done.length} completed)</span></h3>
+        <span style="color:var(--muted);font-size:12px">${isOpen?'▾':'▸'}</span>
       </div>
+      ${isOpen ? `<div>
+        ${sorted.map((t,i) => {
+          const taskIdx = (role.responsibilities||[]).findIndex(x=>x.id===t.id);
+          return `
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 18px;border-bottom:1px solid var(--border)">
+            <span style="font-size:11px;color:var(--success)">✓</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;text-decoration:line-through;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.text)}</div>
+              ${t.completedAt?`<div style="font-size:10px;color:var(--muted)">Completed ${fmtDT(t.completedAt)}</div>`:''}
+              ${t.assignedTo?`<div style="font-size:10px;color:var(--muted)">${esc(t.assignedTo)}</div>`:''}
+            </div>
+            <button onclick="restoreTask('${role.id}',${taskIdx})" class="btn btn-ghost btn-sm" title="Move back to active tasks" style="font-size:10px;padding:3px 8px">↩ Restore</button>
+            <button onclick="deleteTask('${role.id}',${taskIdx})" style="background:none;border:none;color:var(--danger);cursor:pointer;opacity:0.4;font-size:12px;padding:0 4px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4">✕</button>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
     </div>`;
   }
 
   // ── Task Folder ──────────────────────────────────────────────────────────────
-  function renderTaskFolder(role, folder, fi, totalFolders) {
-    const tasks   = tasksInFolder(role, folder.id);
+  function sortTasksBy(tasks) {
+    const s = window._roleSort || 'manual';
+    if (s === 'deadline') return [...tasks].sort((a,b) => { if (!a.deadline&&!b.deadline) return 0; if (!a.deadline) return 1; if (!b.deadline) return -1; return new Date(a.deadline)-new Date(b.deadline); });
+    if (s === 'priority') return [...tasks].sort((a,b) => ({'high':0,'medium':1,'low':2,'':3}[a.priority||'']||3) - ({'high':0,'medium':1,'low':2,'':3}[b.priority||'']||3));
+    if (s === 'alpha')    return [...tasks].sort((a,b) => (a.text||'').localeCompare(b.text||''));
+    if (s === 'status')   return [...tasks].sort((a,b) => (a.done===b.done?0:a.done?1:-1));
+    return tasks;
+  }
+
+  function sortControlsHTML() {
+    const cur = window._roleSort || 'manual';
+    return `<div style="display:flex;align-items:center;gap:4px;margin-left:8px">
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Sort</span>
+      <select onchange="window._roleSort=this.value;render()" style="background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:10px;padding:2px 6px;cursor:pointer;outline:none">
+        <option value="manual" ${cur==='manual'?'selected':''}>Manual</option>
+        <option value="deadline" ${cur==='deadline'?'selected':''}>Deadline</option>
+        <option value="priority" ${cur==='priority'?'selected':''}>Priority</option>
+        <option value="alpha" ${cur==='alpha'?'selected':''}>A-Z</option>
+        <option value="status" ${cur==='status'?'selected':''}>Status</option>
+      </select>
+    </div>`;
+  }
+
+    function renderTaskFolder(role, folder, fi, totalFolders) {
+    const tasks   = sortTasksBy(tasksInFolder(role, folder.id));
     const done    = tasks.filter(t=>t.done).length;
     const pct     = tasks.length ? Math.round(done/tasks.length*100) : 0;
     const isOpen  = !collapsed['f_'+folder.id];
@@ -427,6 +491,7 @@ async function render_roles(container) {
           ${folder.deadline?`<span class="chip ${overdue?'chip-danger':'chip-accent'}" style="font-size:9px">${overdue?'⚠':'📅'} ${new Date(folder.deadline).toLocaleDateString()}</span>`:''}
         </div>
         <div style="display:flex;align-items:center;gap:6px">
+          ${sortControlsHTML()}
           <span style="font-size:10px;color:var(--muted)">${done}/${tasks.length} · ${pct}%</span>
           <div class="progress-wrap" style="width:70px"><div class="progress-bar" style="width:${pct}%;background:${color}"></div></div>
           ${arrowBtns(`moveFolder('${role.id}','${folder.id}','up')`,`moveFolder('${role.id}','${folder.id}','down')`, fi===0, fi===totalFolders-1)}
@@ -457,14 +522,15 @@ async function render_roles(container) {
     const tasks   = unfolderedTasks(role);
     const folders = role.taskFolders || [];
     if (tasks.length === 0 && folders.length > 0) return '';
+    const sorted  = sortTasksBy(tasks);
     return `
     <div class="card" style="grid-column:span 2">
-      <div class="card-header"><h3>General Tasks</h3><span class="chip chip-muted">${tasks.length}</span></div>
+      <div class="card-header" style="flex-wrap:wrap;gap:8px"><h3>General Tasks</h3><span class="chip chip-muted">${tasks.length}</span>${sortControlsHTML()}</div>
       ${tasks.length>0?colHeaders():''}
       <div>
         ${tasks.length===0
           ? `<div class="text-muted text-sm" style="padding:12px 18px">No tasks yet</div>`
-          : tasks.map((t,ti) => renderTaskRow(role, t, ti, tasks.length, null)).join('')}
+          : sorted.map((t,ti) => renderTaskRow(role, t, ti, tasks.length, null)).join('')}
       </div>
       <div style="padding:8px 18px;display:flex;gap:8px;border-top:1px solid var(--border)" draggable="false" ondragstart="event.stopPropagation()">
         <input type="text" id="qt-general" placeholder="Quick add task…"
@@ -548,7 +614,7 @@ async function render_roles(container) {
   }
 
   function roleModalHtml() {
-    return `<div class="modal-overlay" id="role-modal" onclick="closeRoleModal(event)"><div class="modal">
+    return `<div class="modal-overlay" id="role-modal" onclick="closeRoleModal(event)"><div class="modal" style="width:560px">
       <h2 id="rm-title-h">Add Role</h2><input type="hidden" id="rm-id"/>
       <div class="field"><label>Role Title</label><input id="rm-title" type="text" placeholder="e.g. Product Manager"/></div>
       <div class="field-row">
@@ -556,6 +622,38 @@ async function render_roles(container) {
         <div class="field"><label>Priority</label><select id="rm-priority"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></div>
       </div>
       <div class="field"><label>Add to Group</label><select id="rm-group"><option value="">— No group —</option>${roleGroups.map(g=>`<option value="${g.id}">${esc(g.title)}</option>`).join('')}</select></div>
+      <div class="field" style="background:var(--card);border-radius:6px;padding:14px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px">
+          <input type="checkbox" id="rm-recurring" onchange="toggleRoleRecurring()" style="accent-color:var(--accent)"/>
+          <span style="font-weight:500">Recurring Role</span>
+          <span style="font-size:10px;color:var(--muted)">— tasks reset automatically</span>
+        </label>
+        <div id="rm-recur-fields" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field" style="margin:0">
+            <label>Repeat every</label>
+            <div style="display:flex;gap:6px">
+              <input id="rm-recur-value" type="number" min="1" value="1" style="width:60px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:12px;padding:6px 8px;outline:none"/>
+              <select id="rm-recur-unit" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:12px;padding:6px 8px;outline:none">
+                <option value="daily">Days</option>
+                <option value="weekly">Weeks</option>
+                <option value="monthly" selected>Months</option>
+                <option value="quarterly">Quarters</option>
+                <option value="yearly">Years</option>
+              </select>
+            </div>
+          </div>
+          <div class="field" style="margin:0">
+            <label>Next reset date</label>
+            <input id="rm-recur-next" type="date" style="background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:12px;padding:6px 8px;outline:none;width:100%"/>
+          </div>
+          <div class="field" style="margin:0;grid-column:span 2">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="rm-recur-reset-tasks" checked style="accent-color:var(--accent)"/>
+              <span style="font-size:12px">Reset all tasks to incomplete on each cycle</span>
+            </label>
+          </div>
+        </div>
+      </div>
       <div class="modal-footer"><button class="btn btn-ghost" onclick="closeRoleModal()">Cancel</button><button class="btn btn-primary" onclick="saveRole()">Save</button></div>
     </div></div>`;
   }
@@ -639,7 +737,7 @@ async function render_roles(container) {
           Completed Date & Time
           <button type="button" onclick="copyDateToNotes('tm-completed','Completed')" class="btn btn-ghost btn-sm" style="font-size:9px;padding:2px 8px">📋 Copy to Notes</button>
         </label>
-        <input id="tm-completed" type="datetime-local" onchange="tmAutoSave()"/>
+        <input id="tm-completed" type="datetime-local" onchange="onCompletedDateChange()"/>
       </div>
 
       <div class="field">
@@ -703,13 +801,14 @@ async function render_roles(container) {
       <div class="modal-footer" style="flex-shrink:0">
         <button class="btn btn-danger" id="tm-delete-btn" onclick="deleteTaskFromModal()" style="margin-right:auto">✕ Delete</button>
         <button class="btn btn-ghost btn-sm" id="tm-duplicate-btn" onclick="duplicateTaskFromModal()" style="margin-right:8px">⧉ Duplicate</button>
+        <button class="btn btn-ghost btn-sm" onclick="createCalendarBlockFromTask()" title="Block time in calendar for this task">📅 Block Time</button>
         <button class="btn btn-ghost" onclick="closeTaskModal()">Close</button>
         <button class="btn btn-primary" onclick="saveTask()">Save & Close</button>
       </div>
     </div></div>
 
     <!-- Completion dialog -->
-    <div class="modal-overlay" id="completion-modal" style="z-index:600">
+    <div class="modal-overlay" id="completion-modal" style="z-index:600;display:none">
       <div class="modal" style="width:420px;text-align:center">
         <div style="font-size:40px;margin-bottom:12px">🎉</div>
         <h2 style="margin-bottom:8px">All subtasks complete!</h2>
@@ -723,7 +822,7 @@ async function render_roles(container) {
     </div>
 
     <!-- Recurrence dialog -->
-    <div class="modal-overlay" id="recur-modal" style="z-index:700">
+    <div class="modal-overlay" id="recur-modal" style="z-index:700;display:none">
       <div class="modal" style="width:400px">
         <h2>Set Recurrence</h2>
         <div class="field">
@@ -746,7 +845,7 @@ async function render_roles(container) {
           </label>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="document.getElementById('recur-modal').classList.remove('open')">Cancel</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('recur-modal').style.display='none'">Cancel</button>
           <button class="btn btn-primary" onclick="saveRecurrence()">Save Recurrence</button>
         </div>
       </div>
@@ -798,7 +897,32 @@ async function render_roles(container) {
     };
     window.handleDropRole   = async (e, groupId, toRoleId) => {
       e.currentTarget.style.background='';
-      if (dragState.type==='role') await dropRoleInGroup(groupId, dragState.id, toRoleId);
+      if (dragState.type !== 'role') return;
+      const fromRole = roles.find(r => r.id === dragState.id);
+      if (!fromRole) return;
+      const fromGroup = fromRole.groupId || null;
+      const toGroup   = groupId === 'null' ? null : groupId;
+      if (fromGroup === toGroup) {
+        // Same group — reorder
+        await dropRoleInGroup(toGroup, dragState.id, toRoleId);
+      } else {
+        // Different group — move role to new group
+        fromRole.groupId = toGroup;
+        await saveRoles(); render();
+        toast('Role moved to ' + (toGroup ? (getGroup(toGroup)?.title||'group') : 'Ungrouped') + ' ✓', 'success');
+      }
+    };
+
+    // Drop onto group header (move role into group without specifying position)
+    window.handleDropOnGroup = async (e, groupId) => {
+      e.currentTarget.style.background='';
+      e.stopPropagation();
+      if (dragState.type !== 'role') return;
+      const fromRole = roles.find(r => r.id === dragState.id);
+      if (!fromRole) return;
+      fromRole.groupId = groupId === 'null' ? null : groupId;
+      await saveRoles(); render();
+      toast('Role moved ✓', 'success');
     };
     window.handleDropFolder = async (e, roleId, toFid) => {
       e.currentTarget.style.background='';
@@ -825,14 +949,14 @@ async function render_roles(container) {
 
     // Group CRUD
     window.openGroupModal   = openGroupModal;
-    window.closeGroupModal  = e => { if(!e||e.target===document.getElementById('group-modal')) document.getElementById('group-modal').classList.remove('open'); };
+    window.closeGroupModal  = e => { if(!e||e.target===document.getElementById('group-modal')||e===true) document.getElementById('group-modal').classList.remove('open'); };
     window.saveGroup        = saveGroup;
     window.deleteGroup      = deleteGroup;
     window.selectGroupColor = c => { document.getElementById('gm-color').value=c; document.querySelectorAll('[data-color]').forEach(el=>el.style.borderColor=el.dataset.color===c?'#fff':'transparent'); };
 
     // Role CRUD
     window.openRoleModal    = openRoleModal;
-    window.closeRoleModal   = e => { if(!e||e.target===document.getElementById('role-modal')) document.getElementById('role-modal').classList.remove('open'); };
+    window.closeRoleModal   = e => { if(!e||e.target===document.getElementById('role-modal')||e===true) document.getElementById('role-modal').classList.remove('open'); };
     window.saveRole         = saveRole;
     window.deleteRole       = deleteRole;
     window.setRolePriority  = setRolePriority;
@@ -840,14 +964,35 @@ async function render_roles(container) {
 
     // Task folder CRUD
     window.openTaskFolderModal = openTaskFolderModal;
-    window.closeTFolderModal   = e => { if(!e||e.target===document.getElementById('tfolder-modal')) document.getElementById('tfolder-modal').classList.remove('open'); };
+    window.closeTFolderModal   = e => { if(!e||e.target===document.getElementById('tfolder-modal')||e===true) document.getElementById('tfolder-modal').classList.remove('open'); };
     window.saveTaskFolder      = saveTaskFolder;
     window.deleteTaskFolder    = deleteTaskFolder;
     window.selectFolderColor   = c => { document.getElementById('tf-color').value=c; document.querySelectorAll('[data-fcolor]').forEach(el=>el.style.borderColor=el.dataset.fcolor===c?'#fff':'transparent'); };
 
     // Task CRUD
     window.openTaskModal      = openTaskModal;
-    window.closeTaskModal     = e => { if(!e||e.target===document.getElementById('task-modal')) document.getElementById('task-modal').classList.remove('open'); };
+    window.closeTaskModal     = e => { if(!e||e.target===document.getElementById('task-modal')||e===true) document.getElementById('task-modal').classList.remove('open'); };
+
+    // ── Escape key closes any open modal ──────────────────────────────────────
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      ['task-modal','role-modal','group-modal','tfolder-modal','completion-modal','recur-modal'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('open');
+      });
+    }, { once: false });
+
+    // ── Safety net: nuke any zombie overlays blocking clicks ──────────────────
+    window.forceCloseAllModals = () => {
+      ['task-modal','role-modal','group-modal','tfolder-modal'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.classList.remove('open'); el.style.display=''; }
+      });
+      ['completion-modal','recur-modal'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display='none';
+      });
+    };
     window.applyAssigneeSelect = () => {
       const sel = document.getElementById('tm-assigned-select');
       const inp = document.getElementById('tm-assigned');
@@ -858,6 +1003,133 @@ async function render_roles(container) {
     window.deleteTask         = deleteTask;
     window.deleteTaskFromModal= deleteTaskFromModal;
     window.addQuickTask       = addQuickTask;
+
+    // ── Completed date auto-marks task done ────────────────────────────────────
+    window.onCompletedDateChange = () => {
+      const val = document.getElementById('tm-completed').value;
+      if (val) {
+        const idx    = parseInt(document.getElementById('tm-idx').value);
+        const roleId = document.getElementById('tm-role-id').value;
+        const role   = getRole(roleId);
+        if (role && idx >= 0 && role.responsibilities[idx]) {
+          role.responsibilities[idx].done        = true;
+          role.responsibilities[idx].completedAt = new Date(val).toISOString();
+          if (!role.responsibilities[idx].assignedTo) role.responsibilities[idx].assignedTo = 'Eddie Warren';
+          const assignEl = document.getElementById('tm-assigned');
+          if (assignEl && !assignEl.value) assignEl.value = 'Eddie Warren';
+        }
+      }
+      tmAutoSave();
+    };
+
+    // ── Restore task from history ──────────────────────────────────────────────
+    window.restoreTask = async (roleId, idx) => {
+      const role = getRole(roleId); if (!role) return;
+      const task = role.responsibilities[idx]; if (!task) return;
+      task.done        = false;
+      task.completedAt = null;
+      await saveRoles(); render();
+      toast('Task restored to active ✓', 'success');
+    };
+
+    // ── Create calendar block from task modal ─────────────────────────────────
+    window.createCalendarBlockFromTask = async () => {
+      const title   = document.getElementById('tm-text').value.trim();
+      const roleId  = document.getElementById('tm-role-id').value;
+      const start   = document.getElementById('tm-start').value;
+      const deadline= document.getElementById('tm-deadline').value;
+      const dur     = document.getElementById('tm-duration').value;
+      const durUnit = document.getElementById('tm-duration-unit').value;
+      if (!title) { toast('Save a task name first', 'info'); return; }
+
+      // Pick date: prefer start, fallback to deadline, fallback to today
+      let dateStr = '', startTime = '', endTime = '';
+      const ref = start || deadline;
+      if (ref) {
+        const d = new Date(ref);
+        dateStr   = d.toISOString().slice(0,10);
+        startTime = d.toTimeString().slice(0,5);
+        // Calculate end time from duration
+        if (dur && durUnit) {
+          const mins = durUnit==='minutes'?parseInt(dur):durUnit==='hours'?parseInt(dur)*60:durUnit==='days'?parseInt(dur)*60*8:60;
+          const end  = new Date(d.getTime() + mins*60000);
+          endTime    = end.toTimeString().slice(0,5);
+        }
+      } else {
+        dateStr = new Date().toISOString().slice(0,10);
+      }
+
+      const block = {
+        id: Date.now().toString(),
+        title,
+        roleId: roleId || null,
+        date: dateStr,
+        startTime: startTime || null,
+        endTime: endTime || null,
+        recurring: false,
+        notes: 'Created from task',
+      };
+
+      let blocks = await window.api.store.get('localcal.blocks') || [];
+      blocks.push(block);
+      await window.api.store.set('localcal.blocks', blocks);
+      toast('Calendar block created ✓', 'success');
+    };
+
+    // ── Role recurring toggle ─────────────────────────────────────────────────
+    window.toggleRoleRecurring = () => {
+      const checked = document.getElementById('rm-recurring').checked;
+      document.getElementById('rm-recur-fields').style.display = checked ? 'grid' : 'none';
+    };
+
+    // ── Trigger role reset (manual or auto) ───────────────────────────────────
+    window.triggerRoleReset = async (roleId) => {
+      if (!confirm('Reset all tasks in this role to incomplete?')) return;
+      const role = getRole(roleId); if (!role) return;
+      (role.responsibilities||[]).forEach(t => {
+        if (role.recurrence?.resetTasks !== false) {
+          t.done = false;
+          t.completedAt = null;
+        }
+      });
+      // Advance next reset date
+      if (role.recurrence) {
+        const next = role.recurrence.nextReset ? new Date(role.recurrence.nextReset) : new Date();
+        const {value, unit} = role.recurrence;
+        if (unit==='daily')     next.setDate(next.getDate() + value);
+        else if (unit==='weekly')    next.setDate(next.getDate() + value*7);
+        else if (unit==='monthly')   next.setMonth(next.getMonth() + value);
+        else if (unit==='quarterly') next.setMonth(next.getMonth() + value*3);
+        else if (unit==='yearly')    next.setFullYear(next.getFullYear() + value);
+        role.recurrence.nextReset = next.toISOString().slice(0,10);
+      }
+      await saveRoles(); render();
+      toast('Role reset ✓ — all tasks marked incomplete', 'success');
+    };
+
+    // ── Auto-check for due resets on load ─────────────────────────────────────
+    (async () => {
+      const today = new Date().toISOString().slice(0,10);
+      let changed = false;
+      for (const role of roles) {
+        if (!role.recurrence?.nextReset) continue;
+        if (role.recurrence.nextReset <= today) {
+          if (role.recurrence?.resetTasks !== false) {
+            (role.responsibilities||[]).forEach(t => { t.done = false; t.completedAt = null; });
+          }
+          const next = new Date(role.recurrence.nextReset);
+          const {value, unit} = role.recurrence;
+          if (unit==='daily')          next.setDate(next.getDate() + value);
+          else if (unit==='weekly')    next.setDate(next.getDate() + value*7);
+          else if (unit==='monthly')   next.setMonth(next.getMonth() + value);
+          else if (unit==='quarterly') next.setMonth(next.getMonth() + value*3);
+          else if (unit==='yearly')    next.setFullYear(next.getFullYear() + value);
+          role.recurrence.nextReset = next.toISOString().slice(0,10);
+          changed = true;
+        }
+      }
+      if (changed) { await saveRoles(); render(); toast('Recurring roles have been reset ↺', 'info'); }
+    })();
 
     // ── Date/time copy helpers ──────────────────────────────────────────────────
     window.copyDateToNotes = (fieldId, label) => {
@@ -1061,7 +1333,7 @@ async function render_roles(container) {
       // Check if all done
       const allDone = task.subtasks.length > 0 && task.subtasks.every(s => s.done);
       if (allDone && !task.done) {
-        setTimeout(() => document.getElementById('completion-modal').classList.add('open'), 300);
+        setTimeout(() => document.getElementById('completion-modal').style.display='flex', 300);
       }
     };
 
@@ -1102,19 +1374,19 @@ async function render_roles(container) {
       task.completedAt = new Date().toISOString();
       document.getElementById('tm-completed').value = toLocalDT(task.completedAt);
       await saveRoles();
-      document.getElementById('completion-modal').classList.remove('open');
+      document.getElementById('completion-modal').style.display='none';
       document.getElementById('task-modal').classList.remove('open');
       render(); updateOverdueBadge();
       toast('Task completed ✓', 'success');
     };
 
     window.setTaskRecurring = () => {
-      document.getElementById('completion-modal').classList.remove('open');
-      document.getElementById('recur-modal').classList.add('open');
+      document.getElementById('completion-modal').style.display='none';
+      document.getElementById('recur-modal').style.display='flex';
     };
 
     window.closeCompletionModal = () => {
-      document.getElementById('completion-modal').classList.remove('open');
+      document.getElementById('completion-modal').style.display='none';
     };
 
     window.saveRecurrence = async () => {
@@ -1141,7 +1413,7 @@ async function render_roles(container) {
       task.done = false; task.completedAt = null;
       document.getElementById('tm-completed').value = '';
       await saveRoles();
-      document.getElementById('recur-modal').classList.remove('open');
+      document.getElementById('recur-modal').style.display='none';
       window.renderSubtaskList(task.subtasks||[]);
       render();
       toast(`Task set to recur every ${value} ${unit} ✓`, 'success');
@@ -1161,8 +1433,6 @@ async function render_roles(container) {
       toast(task.excludeFromPct ? '⊘ Excluded from progress %' : 'Included in progress %', 'info');
     };
 
-        window.openCreateEventModal = rid => { navigate('calendar'); setTimeout(()=>{ if(window.openNewEventModal) window.openNewEventModal(rid); },400); };
-    window.syncNotesToOneNote   = syncNotesToOneNote;
     setTimeout(loadLinkedEvents, 100);
   }
 
@@ -1203,13 +1473,30 @@ async function render_roles(container) {
     document.getElementById('rm-dept').value    =r?.dept    ||'';
     document.getElementById('rm-priority').value=r?.priority||'medium';
     document.getElementById('rm-group').value   =r?.groupId ||preGroupId||'';
+    // Recurrence
+    const hasRecur = !!(r?.recurrence);
+    document.getElementById('rm-recurring').checked = hasRecur;
+    document.getElementById('rm-recur-fields').style.display = hasRecur ? 'grid' : 'none';
+    if (r?.recurrence) {
+      document.getElementById('rm-recur-value').value       = r.recurrence.value || 1;
+      document.getElementById('rm-recur-unit').value        = r.recurrence.unit  || 'monthly';
+      document.getElementById('rm-recur-next').value        = r.recurrence.nextReset ? r.recurrence.nextReset.slice(0,10) : '';
+      document.getElementById('rm-recur-reset-tasks').checked = r.recurrence.resetTasks !== false;
+    }
     document.getElementById('role-modal').classList.add('open');
     setTimeout(()=>document.getElementById('rm-title').focus(),100);
   }
   async function saveRole() {
     const title=document.getElementById('rm-title').value.trim(); if(!title){document.getElementById('rm-title').focus();return;}
     const editId=document.getElementById('rm-id').value;
-    const data={id:editId||Date.now().toString(),title,dept:document.getElementById('rm-dept').value.trim(),priority:document.getElementById('rm-priority').value,groupId:document.getElementById('rm-group').value||null,responsibilities:[],taskFolders:[],notes:''};
+    const isRecurring = document.getElementById('rm-recurring').checked;
+    const recurrence = isRecurring ? {
+      value:      parseInt(document.getElementById('rm-recur-value').value)||1,
+      unit:       document.getElementById('rm-recur-unit').value,
+      nextReset:  document.getElementById('rm-recur-next').value || null,
+      resetTasks: document.getElementById('rm-recur-reset-tasks').checked,
+    } : null;
+    const data={id:editId||Date.now().toString(),title,dept:document.getElementById('rm-dept').value.trim(),priority:document.getElementById('rm-priority').value,groupId:document.getElementById('rm-group').value||null,recurrence,responsibilities:[],taskFolders:[],notes:''};
     if(editId){const idx=roles.findIndex(r=>r.id===editId);if(idx>=0){data.responsibilities=roles[idx].responsibilities;data.taskFolders=roles[idx].taskFolders;data.notes=roles[idx].notes;roles[idx]=data;}}
     else{roles.push(data);activeId=data.id;activeType='role';}
     await saveRoles(); document.getElementById('role-modal').classList.remove('open'); render(); toast(editId?'Role updated ✓':'Role created ✓','success');
@@ -1350,7 +1637,10 @@ async function render_roles(container) {
     if(idx>=0&&role.responsibilities[idx]){
       const existing = role.responsibilities[idx];
       role.responsibilities[idx]={...existing,...data};
-      if(role.responsibilities[idx].done&&!role.responsibilities[idx].completedAt) role.responsibilities[idx].completedAt=new Date().toISOString();
+      if(role.responsibilities[idx].done){
+        if(!role.responsibilities[idx].completedAt) role.responsibilities[idx].completedAt=new Date().toISOString();
+        if(!role.responsibilities[idx].assignedTo)  role.responsibilities[idx].assignedTo='Eddie Warren';
+      }
     } else {
       role.responsibilities.push({id:Date.now().toString(),done:false,subtasks:[],...data});
     }
@@ -1365,7 +1655,10 @@ async function render_roles(container) {
   async function toggleTask(roleId, idx) {
     const role=getRole(roleId); if(!role)return;
     role.responsibilities[idx].done=!role.responsibilities[idx].done;
-    if(role.responsibilities[idx].done&&!role.responsibilities[idx].completedAt)role.responsibilities[idx].completedAt=new Date().toISOString();
+    if(role.responsibilities[idx].done){
+      if(!role.responsibilities[idx].completedAt) role.responsibilities[idx].completedAt=new Date().toISOString();
+      if(!role.responsibilities[idx].assignedTo)  role.responsibilities[idx].assignedTo='Eddie Warren';
+    }
     await saveRoles(); render(); updateOverdueBadge();
   }
   async function deleteTask(roleId, idx) {
@@ -1377,22 +1670,8 @@ async function render_roles(container) {
     if(idx<0)return; document.getElementById('task-modal').classList.remove('open'); await deleteTask(roleId,idx);
   }
 
-  // ── OneNote / Calendar ────────────────────────────────────────────────────────
-  async function syncNotesToOneNote(roleId) {
-    const status=await window.api.auth.status(); if(!status.loggedIn){toast('Sign in to Microsoft first','error');return;}
-    const role=getRole(roleId); const syncSectionId=await window.api.store.get('sync.oneNoteSectionId');
-    if(!syncSectionId){toast('Set a sync section in Settings','error');return;}
-    toast('Syncing…','info');
-    if(role.linkedPageId){const r=await window.api.onenote.updatePage(role.linkedPageId,role.notes||'');toast(r.success?'OneNote updated ✓':'Failed: '+r.error,r.success?'success':'error');}
-    else{const content=`<p>${(role.notes||'').replace(/\n/g,'<br/>')}</p>`;const r=await window.api.onenote.createPage(syncSectionId,role.title,content);if(r.success){role.linkedPageId=r.page?.id;await saveRoles();toast('Created ✓','success');}else toast('Failed: '+r.error,'error');}
-  }
+
   async function loadLinkedEvents() {
-    const el=document.getElementById('linked-events-list'); if(!el||activeType!=='role')return;
-    const status=await window.api.auth.status(); if(!status.loggedIn){el.innerHTML=`<span class="text-muted text-sm">Sign in to see calendar events</span>`;return;}
-    const result=await window.api.calendar.getEvents(14); if(result.error){el.innerHTML=`<span class="text-muted text-sm">Could not load</span>`;return;}
-    const linked=(result.events||[]).filter(e=>e.roleId===activeId);
-    if(!linked.length){el.innerHTML=`<span class="text-muted text-sm">No meetings linked to this role</span>`;return;}
-    el.innerHTML=linked.map(e=>`<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)"><span class="chip chip-info">📅</span><div><div style="font-size:12px">${esc(e.subject)}</div><div class="text-muted text-sm">${new Date(e.start).toLocaleString()}</div></div></div>`).join('');
   }
 
   render();
