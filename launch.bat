@@ -1,3 +1,3 @@
 @echo off
-cd /d "%~dp0"
-npx electron . 
+cd /d "C:\Program Files\RolePlanner"
+start "" node_modules\.bin\electron .

@@ -1,5 +1,5 @@
 /**
- * app.js — renderer entry point · v1.8.0
+ * app.js — renderer entry point
  */
 
 let currentPage = null;
@@ -25,53 +25,76 @@ async function navigate(name) {
   }
 }
 
+async function refreshAuthUI() {
+  const status = await window.api.auth.status();
+  const nameEl  = document.getElementById('nav-name');
+  const emailEl = document.getElementById('nav-email');
+  const avatar  = document.getElementById('nav-avatar');
+
+  if (status.loggedIn && status.user) {
+    const name  = status.user.name || status.user.preferred_username || 'Signed in';
+    const email = status.user.preferred_username || '';
+    nameEl.textContent  = name;
+    emailEl.textContent = email;
+    avatar.textContent  = (name[0] || '?').toUpperCase();
+    // Enable MS365 items
+    document.querySelectorAll('.ms-item').forEach(el => { el.style.opacity = '1'; el.title = ''; });
+  } else {
+    nameEl.textContent  = 'Warren Dev';
+    emailEl.textContent = 'Role Planner v1.1.0';
+    avatar.textContent  = 'W';
+    document.querySelectorAll('.ms-item').forEach(el => { el.style.opacity = '0.4'; });
+  }
+}
+
+async function handleAuthClick() {
+  const status = await window.api.auth.status();
+  if (status.loggedIn) {
+    await window.api.auth.logout();
+    await refreshAuthUI();
+    toast('Signed out', 'info');
+  } else {
+    toast('Opening Microsoft sign-in…', 'info');
+    const result = await window.api.auth.login();
+    if (result?.error === 'no_config') {
+      toast('Set up Azure credentials in Settings first', 'error');
+      navigate('settings');
+    } else if (result?.error) {
+      toast(`Sign-in failed: ${result.message || result.error}`, 'error');
+    } else {
+      await refreshAuthUI();
+      toast('Signed in ✓', 'success');
+      navigate('dashboard');
+    }
+  }
+}
+
 async function updateOverdueBadge() {
   const roles = await window.api.store.get('roles') || [];
-  const now = Date.now();
-  let count = 0;
+  const now   = Date.now();
+  let count   = 0;
   for (const role of roles) {
     for (const t of (role.responsibilities || [])) {
       if (!t.done && t.deadline && new Date(t.deadline).getTime() < now) count++;
     }
   }
   const badge = document.getElementById('notif-badge');
-  badge.textContent = count;
+  badge.textContent  = count;
   badge.style.display = count > 0 ? 'inline' : 'none';
 }
 
-function setupUpdaterListeners() {
-  const banner = document.getElementById('update-banner');
-  const bannerText = document.getElementById('update-banner-text');
-  const downloadBtn = document.getElementById('update-download-btn');
-  const installBtn = document.getElementById('update-install-btn');
-
-  window.api.on('updater:available', (info) => {
-    bannerText.textContent = `Version ${info.version} is available.`;
-    downloadBtn.style.display = 'inline';
-    installBtn.style.display = 'none';
-    banner.style.display = 'flex';
-  });
-
-  window.api.on('updater:progress', (progress) => {
-    bannerText.textContent = `Downloading… ${Math.round(progress.percent)}%`;
-  });
-
-  window.api.on('updater:downloaded', () => {
-    bannerText.textContent = 'Update ready to install.';
-    downloadBtn.style.display = 'none';
-    installBtn.style.display = 'inline';
-  });
-
-  window.api.on('updater:error', (msg) => {
-    console.warn('Updater error:', msg);
-  });
-}
-
 window.addEventListener('DOMContentLoaded', async () => {
+  // Apply saved theme immediately
   if (window.themeEngine) await window.themeEngine.loadAndApplyTheme();
-  setupUpdaterListeners();
+  await refreshAuthUI();
   await navigate('dashboard');
   await updateOverdueBadge();
 
-  window.api.on('notification:clicked', () => navigate('notifications'));
+  window.api.on('auth:changed', async () => {
+    await refreshAuthUI();
+  });
+
+  window.api.on('notification:clicked', () => {
+    navigate('notifications');
+  });
 });
